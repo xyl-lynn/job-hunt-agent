@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 Job Hunt Agent</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f7; color: #1d1d1f; }
+
+    header { background: #1a1a2e; color: white; padding: 18px 40px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+
+    nav { background: #16213e; display: flex; }
+    nav button { background: none; border: none; color: #8a8a9a; padding: 13px 28px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; border-bottom: 3px solid transparent; }
+    nav button.active, nav button:hover { color: white; border-bottom-color: #4f8ef7; }
+
+    .container { max-width: 860px; margin: 30px auto; padding: 0 20px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .card { background: white; border-radius: 14px; padding: 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: #1a1a2e; }
+
+    .upload-area { border: 2px dashed #d0d0d8; border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .upload-area:hover { border-color: #4f8ef7; background: #f0f5ff; }
+    .upload-area.has-file { border-color: #34c759; background: #f0fff4; }
+    .upload-area input { display: none; }
+    .upload-icon { font-size: 2.2rem; }
+    .upload-area p { color: #888; margin-top: 6px; font-size: 0.88rem; }
+
+    textarea { width: 100%; border: 1.5px solid #e0e0e8; border-radius: 10px; padding: 12px; font-size: 0.93rem; resize: vertical; min-height: 150px; font-family: inherit; transition: border-color 0.2s; }
+    textarea:focus { outline: none; border-color: #4f8ef7; }
+
+    .progress-wrap { display: none; margin-bottom: 18px; }
+    .progress-wrap.show { display: block; }
+    .steps { display: flex; margin-bottom: 10px; }
+    .step { flex: 1; text-align: center; font-size: 0.8rem; color: #aaa; position: relative; padding-bottom: 8px; }
+    .step::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #e0e0e8; border-radius: 2px; }
+    .step.active { color: #4f8ef7; font-weight: 600; }
+    .step.active::after { background: #4f8ef7; }
+    .step.done { color: #34c759; }
+    .step.done::after { background: #34c759; }
+    .step-label { margin-bottom: 6px; }
+    .progress-msg { text-align: center; color: #666; font-size: 0.88rem; }
+
+    .btn { background: #1a1a2e; color: white; border: none; padding: 13px 32px; border-radius: 10px; font-size: 0.95rem; cursor: pointer; width: 100%; transition: background 0.2s; font-weight: 500; }
+    .btn:hover { background: #2d2d4e; }
+    .btn:disabled { background: #bbb; cursor: not-allowed; }
+
+    .result-section { display: none; margin-top: 20px; }
+    .result-section.show { display: block; }
+    .result-banner { background: #f0fff4; border: 1.5px solid #34c759; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #1a7a3a; font-weight: 600; font-size: 1rem; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { background: #f0f0f5; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-size: 0.88rem; color: #555; transition: all 0.2s; }
+    .tab.active { background: #1a1a2e; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .markdown-body { line-height: 1.75; font-size: 0.93rem; }
+    .markdown-body h2 { font-size: 1rem; margin: 18px 0 8px; color: #1a1a2e; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    .markdown-body h3 { font-size: 0.93rem; margin: 12px 0 6px; color: #333; }
+    .markdown-body ul, .markdown-body ol { padding-left: 20px; margin: 6px 0; }
+    .markdown-body li { margin-bottom: 4px; }
+    .markdown-body strong { color: #1a1a2e; }
+    .markdown-body blockquote { border-left: 3px solid #4f8ef7; padding-left: 12px; color: #555; margin: 8px 0; }
+    .markdown-body p { margin-bottom: 8px; }
+
+    .copy-btn { background: #f0f0f5; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.83rem; margin-top: 12px; color: #555; }
+    .copy-btn:hover { background: #e0e0e8; }
+
+    /* 弹窗 */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 28px; width: 420px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 20px; color: #1a1a2e; }
+    .modal label { display: block; font-size: 0.88rem; color: #555; margin-bottom: 6px; margin-top: 14px; }
+    .modal select, .modal input[type=text], .modal input[type=number] { width: 100%; border: 1.5px solid #e0e0e8; border-radius: 8px; padding: 9px 12px; font-size: 0.93rem; font-family: inherit; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .modal-actions button { flex: 1; padding: 11px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.93rem; font-weight: 500; }
+    .btn-cancel { background: #f0f0f5; color: #555; }
+    .btn-confirm { background: #1a1a2e; color: white; }
+    .btn-danger { background: #ff3b30; color: white; }
+
+    /* 记录列表 */
+    .app-item { border: 1.5px solid #eee; border-radius: 10px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .app-item .info { flex: 1; }
+    .app-item .info h3 { font-size: 0.97rem; font-weight: 600; }
+    .app-item .info p { color: #888; font-size: 0.83rem; margin-top: 4px; }
+    .app-item .right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+    .badge-已投递 { background: #e3f2fd; color: #1565c0; }
+    .badge-一面 { background: #fff3e0; color: #e65100; }
+    .badge-二面 { background: #fce4ec; color: #880e4f; }
+    .badge-终面 { background: #f3e5f5; color: #6a1b9a; }
+    .badge-已offer { background: #e8f5e9; color: #2e7d32; }
+    .badge-已拒绝 { background: #fafafa; color: #999; }
+    .badge-已放弃 { background: #fafafa; color: #999; }
+
+    .action-btns { display: flex; gap: 6px; }
+    .small-btn { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; color: #555; white-space: nowrap; }
+    .small-btn:hover { background: #f5f5f5; }
+    .small-btn.danger { border-color: #ffb3b0; color: #ff3b30; }
+    .small-btn.danger:hover { background: #fff0f0; }
+
+    .records-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .records-header h2 { margin-bottom: 0; }
+    .add-btn { background: #1a1a2e; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+    .add-btn:hover { background: #2d2d4e; }
+
+    .followup-item { border-left: 4px solid #ff9800; background: #fff8e1; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .followup-item h3 { font-size: 0.97rem; font-weight: 600; }
+    .followup-item p { color: #777; font-size: 0.83rem; margin-top: 5px; }
+
+    .empty { text-align: center; color: #bbb; padding: 40px; font-size: 0.93rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🦞</span>
+  <h1>Job Hunt Agent</h1>
+</header>
+
+<nav>
+  <button class="active" onclick="showPage('analyze', this)">📋 处理新职位</button>
+  <button onclick="showPage('followups', this)">⏰ 跟进提醒</button>
+  <button onclick="showPage('records', this)">📊 投递记录</button>
+</nav>
+
+<div class="container">
+
+  <!-- 页面1：分析 -->
+  <div id="page-analyze" class="page active">
+    <div class="card">
+      <h2>上传简历（PDF）</h2>
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('resumeInput').click()">
+        <div class="upload-icon">📄</div>
+        <p id="uploadLabel">点击选择 PDF 简历文件</p>
+        <input type="file" id="resumeInput" accept=".pdf" onchange="handleFile(this)">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>粘贴职位描述 JD</h2>
+      <textarea id="jdText" placeholder="把招聘 JD 全文粘贴到这里..."></textarea>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="steps">
+        <div class="step" id="step1"><div class="step-label">解析 JD</div></div>
+        <div class="step" id="step2"><div class="step-label">简历分析</div></div>
+        <div class="step" id="step3"><div class="step-label">面试准备</div></div>
+        <div class="step" id="step4"><div class="step-label">完成</div></div>
+      </div>
+      <div class="progress-msg" id="progressMsg">准备中...</div>
+    </div>
+
+    <button class="btn" id="analyzeBtn" onclick="startAnalyze()">🚀 开始分析</button>
+
+    <div class="result-section" id="resultSection">
+      <div class="card" style="margin-top:20px">
+        <div class="result-banner" id="resultBanner"></div>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('advice', this)">📝 简历填写建议</button>
+          <button class="tab" onclick="showTab('interview', this)">🎯 面试准备</button>
+        </div>
+        <div id="tab-advice" class="tab-content active">
+          <div class="markdown-body" id="adviceText"></div>
+          <button class="copy-btn" onclick="copyText('adviceText')">复制文本</button>
+        </div>
+        <div id="tab-interview" class="tab-content">
+          <div class="markdown-body" id="interviewText"></div>
+          <button class="copy-btn" onclick="copyText('interviewText')">复制文本</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页面2：跟进提醒 -->
+  <div id="page-followups" class="page">
+    <div class="card">
+      <h2>⏰ 需要跟进的职位</h2>
+      <div id="followupsList"></div>
+    </div>
+  </div>
+
+  <!-- 页面3：投递记录 -->
+  <div id="page-records" class="page">
+    <div class="card">
+      <div class="records-header">
+        <h2>📊 所有投递记录</h2>
+        <button class="add-btn" onclick="openAddModal()">+ 手动新增</button>
+      </div>
+      <div id="recordsList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 保存记录弹窗（分析完后弹出） -->
+<div class="modal-overlay" id="saveModal">
+  <div class="modal">
+    <h3>💾 保存投递记录</h3>
+    <label>当前进度</label>
+    <select id="modalStatus">
+      <option value="已投递">已投递</option>
+      <option value="一面">一面</option>
+      <option value="二面">二面</option>
+      <option value="终面">终面</option>
+      <option value="已offer">已 Offer</option>
+      <option value="已拒绝">已拒绝</option>
+      <option value="已放弃">已放弃</option>
+    </select>
+    <label>跟进提醒周期（天）</label>
+    <input type="number" id="modalRemind" value="7" min="1" max="30">
+    <label>备注（可选）</label>
+    <input type="text" id="modalNotes" placeholder="例如：HR 联系方式、面试时间...">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('saveModal')">不保存</button>
+      <button class="btn-confirm" onclick="saveRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 修改状态弹窗 -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ 修改记录</h3>
+    <input type="hidden" id="editId">
+    <label>公司名称</label>
+    <input type="text" id="editCompany">
+    <label>岗位名称</label>
+    <input type="text" id="editPosition">
+    <label>当前进度</label>
+    <select id="editStatus">
+      <option value="已投递">已投递</option>
+      <option value="一面">一面</option>
+      <option value="二面">二面</option>
+      <option value="终面">终面</option>
+      <option value="已offer">已 Offer</option>
+      <option value="已拒绝">已拒绝</option>
+      <option value="已放弃">已放弃</option>
+    </select>
+    <label>备注</label>
+    <input type="text" id="editNotes" placeholder="备注信息...">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('editModal')">取消</button>
+      <button class="btn-confirm" onclick="confirmEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 手动新增弹窗 -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3>➕ 手动新增投递记录</h3>
+    <label>公司名称</label>
+    <input type="text" id="addCompany" placeholder="例如：字节跳动">
+    <label>岗位名称</label>
+    <input type="text" id="addPosition" placeholder="例如：后端工程师">
+    <label>职位简介（可选）</label>
+    <input type="text" id="addSummary" placeholder="简单描述职位...">
+    <label>当前进度</label>
+    <select id="addStatus">
+      <option value="已投递">已投递</option>
+      <option value="一面">一面</option>
+      <option value="二面">二面</option>
+      <option value="终面">终面</option>
+      <option value="已offer">已 Offer</option>
+      <option value="已拒绝">已拒绝</option>
+      <option value="已放弃">已放弃</option>
+    </select>
+    <label>跟进提醒周期（天）</label>
+    <input type="number" id="addRemind" value="7" min="1" max="30">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('addModal')">取消</button>
+      <button class="btn-confirm" onclick="confirmAdd()">新增</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentJdInfo = null;
+  let currentResumeText = null;
+
+  function showPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'followups') loadFollowups();
+    if (name === 'records') loadRecords();
+  }
+
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function handleFile(input) {
+    const file = input.files[0];
+    if (file) {
+      document.getElementById('uploadLabel').textContent = '✅ ' + file.name;
+      document.getElementById('uploadArea').classList.add('has-file');
+    }
+  }
+
+  function setStep(step, state) {
+    const el = document.getElementById('step' + step);
+    el.classList.remove('active', 'done');
+    el.classList.add(state);
+  }
+
+  function setMsg(msg) {
+    document.getElementById('progressMsg').textContent = msg;
+  }
+
+  async function startAnalyze() {
+    const resumeInput = document.getElementById('resumeInput');
+    const jdText = document.getElementById('jdText').value.trim();
+    if (!resumeInput.files[0]) { alert('请先上传简历 PDF'); return; }
+    if (!jdText) { alert('请填写职位描述'); return; }
+
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('progressWrap').classList.add('show');
+    document.getElementById('resultSection').classList.remove('show');
+
+    try {
+      setStep(1, 'active'); setMsg('正在解析职位描述...');
+      const formData = new FormData();
+      formData.append('resume', resumeInput.files[0]);
+      formData.append('jd_text', jdText);
+      const r1 = await fetch('/analyze/jd', { method: 'POST', body: formData });
+      const d1 = await r1.json();
+      if (d1.error) throw new Error(d1.error);
+      currentJdInfo = d1.jd_info;
+      currentResumeText = d1.resume_text;
+      setStep(1, 'done');
+
+      setStep(2, 'active'); setMsg('正在分析简历匹配度...');
+      const r2 = await fetch('/analyze/advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume_text: currentResumeText, jd_info: currentJdInfo })
+      });
+      const d2 = await r2.json();
+      if (d2.error) throw new Error(d2.error);
+      document.getElementById('adviceText').innerHTML = marked.parse(d2.advice);
+      setStep(2, 'done');
+
+      setStep(3, 'active'); setMsg('正在生成面试准备清单...');
+      const r3 = await fetch('/analyze/interview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume_text: currentResumeText, jd_info: currentJdInfo })
+      });
+      const d3 = await r3.json();
+      if (d3.error) throw new Error(d3.error);
+      document.getElementById('interviewText').innerHTML = marked.parse(d3.interview);
+      setStep(3, 'done');
+
+      setStep(4, 'done'); setMsg('✅ 分析完成！');
+      document.getElementById('resultBanner').textContent =
+        `✅ ${currentJdInfo.company} · ${currentJdInfo.position}`;
+      document.getElementById('resultSection').classList.add('show');
+      document.getElementById('saveModal').classList.add('show');
+
+    } catch (e) {
+      setMsg('❌ 出错：' + e.message);
+    } finally {
+      document.getElementById('analyzeBtn').disabled = false;
+    }
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  async function saveRecord() {
+    const status = document.getElementById('modalStatus').value;
+    const remind_days = parseInt(document.getElementById('modalRemind').value) || 7;
+    const notes = document.getElementById('modalNotes').value;
+    await fetch('/applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        company: currentJdInfo.company,
+        position: currentJdInfo.position,
+        jd_summary: currentJdInfo.summary,
+        status, remind_days, notes
+      })
+    });
+    closeModal('saveModal');
+  }
+
+  async function loadFollowups() {
+    const res = await fetch('/followups');
+    const data = await res.json();
+    const el = document.getElementById('followupsList');
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">🎉 暂无需要跟进的职位</div>';
+      return;
+    }
+    el.innerHTML = data.map(a => `
+      <div class="followup-item">
+        <h3>${a.company} · ${a.position}</h3>
+        <p>投递日期：${a.applied_date} · 已过 <strong>${a.days_passed}</strong> 天（提醒周期：${a.remind_days}天）</p>
+        <p style="margin-top:6px;color:#e65100;font-weight:500">建议发送 follow-up 邮件或电话跟进</p>
+      </div>
+    `).join('');
+  }
+
+  async function loadRecords() {
+    const res = await fetch('/applications');
+    const data = await res.json();
+    const el = document.getElementById('recordsList');
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">暂无记录，去处理你的第一个职位吧！</div>';
+      return;
+    }
+    el.innerHTML = [...data].reverse().map(a => `
+      <div class="app-item">
+        <div class="info">
+          <h3>${a.company} · ${a.position}</h3>
+          <p>${a.jd_summary || ''}</p>
+          <p style="margin-top:4px">投递：${a.applied_date} · 更新：${a.last_update}</p>
+          ${a.notes ? `<p style="margin-top:4px;color:#555">备注：${a.notes}</p>` : ''}
+        </div>
+        <div class="right">
+          <span class="badge badge-${a.status}">${a.status}</span>
+          <div class="action-btns">
+            <button class="small-btn" onclick="openEditModal(${a.id}, '${a.company}', '${a.position}', '${a.status}', '${a.notes || ''}')">修改</button>
+            <button class="small-btn danger" onclick="deleteRecord(${a.id})">删除</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function openEditModal(id, company, position, status, notes) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editCompany').value = company;
+    document.getElementById('editPosition').value = position;
+    document.getElementById('editStatus').value = status;
+    document.getElementById('editNotes').value = notes;
+    document.getElementById('editModal').classList.add('show');
+  }
+
+  async function confirmEdit() {
+    const id = parseInt(document.getElementById('editId').value);
+    const company = document.getElementById('editCompany').value;
+    const position = document.getElementById('editPosition').value;
+    const status = document.getElementById('editStatus').value;
+    const notes = document.getElementById('editNotes').value;
+
+    await fetch(`/applications/${id}/edit`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company, position })
+    });
+    await fetch(`/applications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, notes })
+    });
+    closeModal('editModal');
+    loadRecords();
+  }
+
+  async function deleteRecord(id) {
+    if (!confirm('确定删除这条记录吗？')) return;
+    await fetch(`/applications/${id}`, { method: 'DELETE' });
+    loadRecords();
+  }
+
+  function openAddModal() {
+    document.getElementById('addCompany').value = '';
+    document.getElementById('addPosition').value = '';
+    document.getElementById('addSummary').value = '';
+    document.getElementById('addStatus').value = '已投递';
+    document.getElementById('addRemind').value = 7;
+    document.getElementById('addModal').classList.add('show');
+  }
+
+  async function confirmAdd() {
+    const company = document.getElementById('addCompany').value.trim();
+    const position = document.getElementById('addPosition').value.trim();
+    if (!company || !position) { alert('请填写公司名称和岗位名称'); return; }
+    const jd_summary = document.getElementById('addSummary').value.trim();
+    const status = document.getElementById('addStatus').value;
+    const remind_days = parseInt(document.getElementById('addRemind').value) || 7;
+    await fetch('/applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company, position, jd_summary, status, remind_days })
+    });
+    closeModal('addModal');
+    loadRecords();
+  }
+
+  function copyText(id) {
+    const text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text).then(() => alert('已复制！'));
+  }
+</script>
+</body>
+</html>
