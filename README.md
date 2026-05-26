@@ -29,7 +29,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/leeeeee10/job-hunt-agent.git
+git clone https://github.com/xyl-lynn/job-hunt-agent.git
 cd job-hunt-agent
 ```
 
